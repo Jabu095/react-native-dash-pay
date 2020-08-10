@@ -8,17 +8,23 @@ import android.os.CountDownTimer;
 import androidx.annotation.NonNull;
 
 import com.facebook.react.bridge.ActivityEventListener;
+import com.facebook.react.bridge.Promise;
 import com.facebook.react.bridge.ReactApplicationContext;
 import com.facebook.react.bridge.ReactContextBaseJavaModule;
 import com.facebook.react.bridge.ReactMethod;
 
-public class DashPayPOS extends ReactContextBaseJavaModule {
+public class DashPayModule extends ReactContextBaseJavaModule {
   private static ReactApplicationContext reactContext;
   private static final String PAYMENT_URI = "com.ar.pos";
   private static final int REQUEST_CODE = 1;
   public static int tsn=1;
   public static int lastSentTsn=0;
 
+
+  @ReactMethod
+  public void multiply(int a, int b , Promise promise){
+      promise.resolve(a*b);
+  }
 
   @ReactMethod
   public String getResponseCode() {
@@ -31,7 +37,7 @@ public class DashPayPOS extends ReactContextBaseJavaModule {
 
   private String responseCode;
 
-  DashPayPOS(ReactApplicationContext context) {
+  DashPayModule(ReactApplicationContext context) {
     super(context);
     reactContext = context;
   }
@@ -39,12 +45,12 @@ public class DashPayPOS extends ReactContextBaseJavaModule {
   @NonNull
   @Override
   public String getName() {
-    return "reactnativedashpay";
+    return "DashPay";
   }
 
 
   @ReactMethod
-  public void pay(String REFERENCE_NUMBER, String TRANSACTION_ID,String OPERATOR_ID, String ADDITIONAL_AMOUNT,String AMOUNT,String TRANSACTION_TYPE,String EXTRA_ORIGINATING_URI) {
+  public void pay(String REFERENCE_NUMBER, String TRANSACTION_ID,String OPERATOR_ID, String ADDITIONAL_AMOUNT,String AMOUNT,String TRANSACTION_TYPE,String EXTRA_ORIGINATING_URI, Promise promise) {
 
     reactContext.addActivityEventListener(new ActivityEventListener() {
       @Override
@@ -59,16 +65,12 @@ public class DashPayPOS extends ReactContextBaseJavaModule {
                 String responseCode = intent.getStringExtra("RESPONSE_CODE");
                 String authCode = intent.getStringExtra("AUTH_CODE");
                 setResponseCode(responseCode);
-//            imageViewSuccess.setVisibility(View.VISIBLE);
-//            imageViewFailed.setVisibility(View.GONE);
+                promise.resolve(requestCode);
               } else if (result.equals("DECLINED")) {
                 String responseCode = intent.getStringExtra("RESPONSE_CODE");
                 setResponseCode(responseCode);
-//            imageViewFailed.setVisibility(View.VISIBLE);
-//            imageViewSuccess.setVisibility(View.GONE);
+                promise.resolve(requestCode);
               } else {
-//            imageViewFailed.setVisibility(View.VISIBLE);
-//            imageViewSuccess.setVisibility(View.GONE);
               }
 
               new CountDownTimer(2000, 1000) { // 5000 = 5 sec
@@ -77,8 +79,6 @@ public class DashPayPOS extends ReactContextBaseJavaModule {
                 }
 
                 public void onFinish() {
-//              imageViewSuccess.setVisibility(View.GONE);
-//              imageViewFailed.setVisibility(View.GONE);
                 }
               }.start();
             }
