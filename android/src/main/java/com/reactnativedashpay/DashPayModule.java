@@ -4,6 +4,7 @@ import android.app.Activity;
 import android.content.Intent;
 import android.content.pm.ResolveInfo;
 import android.os.CountDownTimer;
+import android.widget.Toast;
 
 import androidx.annotation.NonNull;
 
@@ -13,9 +14,11 @@ import com.facebook.react.bridge.ReactApplicationContext;
 import com.facebook.react.bridge.ReactContextBaseJavaModule;
 import com.facebook.react.bridge.ReactMethod;
 
+import java.util.List;
+
 public class DashPayModule extends ReactContextBaseJavaModule {
   private static ReactApplicationContext reactContext;
-  private static final String PAYMENT_URI = "com.ar.pos";
+  private static final String PAYMENT_URI = "com.ar.dashpaypos";
   private static final int REQUEST_CODE = 1;
   public static int tsn=1;
   public static int lastSentTsn=0;
@@ -26,7 +29,6 @@ public class DashPayModule extends ReactContextBaseJavaModule {
       promise.resolve(a*b);
   }
 
-  @ReactMethod
   public String getResponseCode() {
     return responseCode;
   }
@@ -37,9 +39,34 @@ public class DashPayModule extends ReactContextBaseJavaModule {
 
   private String responseCode;
 
+  public String getDisplayTest() {
+    return displayTest;
+  }
+
+  public void setDisplayTest(String displayTest) {
+    this.displayTest = displayTest;
+  }
+
+  private String displayTest;
+
+  public String getResult() {
+    return result;
+  }
+
+  public void setResult(String result) {
+    this.result = result;
+  }
+
+  private String result;
   DashPayModule(ReactApplicationContext context) {
     super(context);
     reactContext = context;
+  }
+
+  @ReactMethod
+  public void getTransactionResults (Promise promise){
+    MobileResults results = new MobileResults(getDisplayTest(),getResponseCode(),getResult());
+    promise.resolve(results);
   }
 
   @NonNull
@@ -51,7 +78,6 @@ public class DashPayModule extends ReactContextBaseJavaModule {
 
   @ReactMethod
   public void pay(String REFERENCE_NUMBER, String TRANSACTION_ID,String OPERATOR_ID, String ADDITIONAL_AMOUNT,String AMOUNT,String TRANSACTION_TYPE,String EXTRA_ORIGINATING_URI, Promise promise) {
-
     reactContext.addActivityEventListener(new ActivityEventListener() {
       @Override
       public void onActivityResult(Activity activity, int requestCode, int resultCode, Intent intent) {
@@ -61,6 +87,8 @@ public class DashPayModule extends ReactContextBaseJavaModule {
             if (tid != null && Integer.parseInt(tid) == lastSentTsn) {
               String result = intent.getStringExtra("RESULT");
               String displayTest = intent.getStringExtra("DISPLAY_TEXT");
+              setDisplayTest(displayTest);
+              setResult(result);
               if (result.equals("APPROVED")) {
                 String responseCode = intent.getStringExtra("RESPONSE_CODE");
                 String authCode = intent.getStringExtra("AUTH_CODE");
@@ -97,7 +125,7 @@ public class DashPayModule extends ReactContextBaseJavaModule {
     Intent share = new Intent(android.content.Intent.ACTION_SEND);
     boolean found = false;
     share.setType("text/plain");
-    Iterable<? extends ResolveInfo> resInfo = null;
+    List<ResolveInfo> resInfo = reactContext.getPackageManager().queryIntentActivities(share, 0);
     for (ResolveInfo info : resInfo) {
       if (info.activityInfo.packageName.toLowerCase().contains(PAYMENT_URI) ||
         info.activityInfo.name.toLowerCase().contains(PAYMENT_URI) ) {
@@ -113,12 +141,24 @@ public class DashPayModule extends ReactContextBaseJavaModule {
         tsn++;
         share.setPackage(info.activityInfo.packageName);
         found = true;
-        reactContext.startActivity(share);
+
         break;
       }
     }
     if (!found)
       return;
+    reactContext.getCurrentActivity().startActivityForResult(Intent.createChooser(share,"Select"),REQUEST_CODE);
   }
 
+  public class MobileResults {
+    public String displayTest;
+    public String responseCode;
+    public String result;
+    public MobileResults(String displayTest, String responseCode, String result) {
+      this.displayTest = displayTest;
+      this.responseCode = responseCode;
+      this.result = result;
+    }
+
+  }
 }
