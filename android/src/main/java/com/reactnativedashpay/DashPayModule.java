@@ -4,7 +4,6 @@ import android.app.Activity;
 import android.content.Intent;
 import android.content.pm.ResolveInfo;
 import android.os.CountDownTimer;
-import android.widget.Toast;
 
 import androidx.annotation.NonNull;
 
@@ -63,10 +62,12 @@ public class DashPayModule extends ReactContextBaseJavaModule {
     reactContext = context;
   }
 
+
   @ReactMethod
   public void getTransactionResults (Promise promise){
     MobileResults results = new MobileResults(getDisplayTest(),getResponseCode(),getResult());
-    promise.resolve(results);
+    String res = String.format("{'result':'%s','displayTest':'%s','responseCode':'%s'",results.result,results.displayTest,results.responseCode);
+    promise.resolve(res);
   }
 
   @NonNull
