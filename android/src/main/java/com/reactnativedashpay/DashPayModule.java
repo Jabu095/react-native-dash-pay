@@ -66,7 +66,7 @@ public class DashPayModule extends ReactContextBaseJavaModule {
   @ReactMethod
   public void getTransactionResults (Promise promise){
     MobileResults results = new MobileResults(getDisplayTest(),getResponseCode(),getResult());
-    String res = String.format("{'result':'%s','displayTest':'%s','responseCode':'%s'",results.result,results.displayTest,results.responseCode);
+    String res = String.format("{'result':'%s','displayTest':'%s','responseCode':'%s'}",results.result,results.displayTest,results.responseCode);
     promise.resolve(res);
   }
 
