@@ -1,13 +1,20 @@
 package com.reactnativedashpay;
 
+import android.Manifest;
+import android.annotation.SuppressLint;
 import android.app.Activity;
+import android.content.Context;
 import android.content.Intent;
+import android.content.pm.PackageManager;
 import android.content.pm.ResolveInfo;
+import android.os.Build;
 import android.os.CountDownTimer;
+import android.telephony.TelephonyManager;
 
 import androidx.annotation.NonNull;
 
 import com.facebook.react.bridge.ActivityEventListener;
+import com.facebook.react.bridge.Arguments;
 import com.facebook.react.bridge.Promise;
 import com.facebook.react.bridge.ReactApplicationContext;
 import com.facebook.react.bridge.ReactContextBaseJavaModule;
@@ -21,7 +28,7 @@ public class DashPayModule extends ReactContextBaseJavaModule {
   private static final int REQUEST_CODE = 1;
   public static int tsn=1;
   public static int lastSentTsn=0;
-
+  private TelephonyManager tm;
 
   @ReactMethod
   public void multiply(int a, int b , Promise promise){
@@ -60,8 +67,37 @@ public class DashPayModule extends ReactContextBaseJavaModule {
   DashPayModule(ReactApplicationContext context) {
     super(context);
     reactContext = context;
+    tm = (TelephonyManager) reactContext.getSystemService(Context.TELEPHONY_SERVICE);
   }
 
+  @SuppressLint("MissingPermission")
+  @ReactMethod
+  public void getImei(Promise promise) {
+    if (!hasPermission()) {
+      promise.reject(new RuntimeException("Missing permission " + Manifest.permission.READ_PHONE_STATE));
+    } else {
+      if (Build.VERSION.SDK_INT >= 23) {
+        int count = tm.getPhoneCount();
+        String[] imei = new String[count];
+        for (int i = 0; i < count; i++) {
+          if (Build.VERSION.SDK_INT >= 26) {
+            imei[i] = tm.getImei(i);
+          } else {
+            imei[i] = tm.getDeviceId(i);
+          }
+        }
+        promise.resolve(Arguments.fromJavaArgs(imei));
+      } else {
+        promise.resolve(Arguments.fromJavaArgs(new String[]{tm.getDeviceId()}));
+      }
+    }
+  }
+
+  private boolean hasPermission() {
+    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+      return reactContext.checkSelfPermission(Manifest.permission.READ_PHONE_STATE) == PackageManager.PERMISSION_GRANTED;
+    } else return true;
+  }
 
   @ReactMethod
   public void getTransactionResults (Promise promise){
@@ -146,8 +182,10 @@ public class DashPayModule extends ReactContextBaseJavaModule {
         break;
       }
     }
-    if (!found)
+    if (!found){
+      promise.resolve("no dashpay pos");
       return;
+    }
     reactContext.getCurrentActivity().startActivityForResult(Intent.createChooser(share,"Select"),REQUEST_CODE);
   }
 
