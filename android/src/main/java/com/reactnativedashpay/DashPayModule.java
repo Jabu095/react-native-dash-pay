@@ -3,6 +3,7 @@ package com.reactnativedashpay;
 import android.Manifest;
 import android.annotation.SuppressLint;
 import android.app.Activity;
+import android.app.Instrumentation;
 import android.content.Context;
 import android.content.Intent;
 import android.content.pm.PackageManager;
@@ -10,15 +11,24 @@ import android.content.pm.ResolveInfo;
 import android.os.Build;
 import android.os.CountDownTimer;
 import android.telephony.TelephonyManager;
+import android.util.SparseArray;
+import android.widget.Toast;
 
 import androidx.annotation.NonNull;
 
 import com.facebook.react.bridge.ActivityEventListener;
 import com.facebook.react.bridge.Arguments;
+import com.facebook.react.bridge.BaseActivityEventListener;
 import com.facebook.react.bridge.Promise;
 import com.facebook.react.bridge.ReactApplicationContext;
 import com.facebook.react.bridge.ReactContextBaseJavaModule;
 import com.facebook.react.bridge.ReactMethod;
+import com.facebook.react.bridge.ReadableMap;
+import com.facebook.react.bridge.WritableMap;
+import com.facebook.react.bridge.WritableNativeMap;
+import com.newland.sdk.ModuleManage;
+import com.newland.sdk.module.devicebasic.DeviceBasicModule;
+import com.newland.sdk.module.devicebasic.DeviceInfo;
 
 import java.util.List;
 
@@ -29,10 +39,81 @@ public class DashPayModule extends ReactContextBaseJavaModule {
   public static int tsn=1;
   public static int lastSentTsn=0;
   private TelephonyManager tm;
+  final SparseArray<Promise> mPromises;
+  private Promise mReturnResults;
+
+  private  final ActivityEventListener mActivityEventListener = new BaseActivityEventListener(){
+    @Override
+    public void onActivityResult(Activity activity, int requestCode, int resultCode, Intent intent) {
+      super.onActivityResult(activity,requestCode,resultCode,intent);
+      try {
+        //String result2 = activity.toString();
+        //String displayTest2 = intent.getStringExtra("DISPLAY_TEXT");
+        //mReturnResults.resolve(result2);
+        if (requestCode == REQUEST_CODE) {
+          if (mReturnResults != null) {
+            WritableMap response = new WritableNativeMap();
+            if (resultCode == Activity.RESULT_OK) {
+              String tid = intent.getStringExtra("TRANSACTION_ID");
+              if (tid != null && Integer.parseInt(tid) == lastSentTsn) {
+                String result = intent.getStringExtra("RESULT");
+                String displayTest = intent.getStringExtra("DISPLAY_TEXT");
+                response.putString("result", result);
+                response.putString("displayTest", displayTest);
+                mReturnResults.resolve(response);
+                response.putString("responseCode", intent.getStringExtra("RESPONSE_CODE"));
+                if (result.equals("APPROVED")) {
+                  String responseCode = intent.getStringExtra("RESPONSE_CODE");
+                  String authCode = intent.getStringExtra("AUTH_CODE");
+                  response.putString("result", result);
+                  response.putString("displayTest", authCode);
+                  response.putString("responseCode", responseCode);
+                  mReturnResults.resolve(response);
+
+                } else if (result.equals("DECLINED")) {
+                  String responseCode = intent.getStringExtra("RESPONSE_CODE");
+                  response.putString("result", result);
+                  response.putString("displayTest", "");
+                  response.putString("responseCode", responseCode);
+                  mReturnResults.resolve(response);
+                } else {
+                }
+
+                new CountDownTimer(2000, 1000) { // 5000 = 5 sec
+
+                  public void onTick(long millisUntilFinished) {
+                  }
+
+                  public void onFinish() {
+                  }
+                }.start();
+              }
+            } else if (resultCode == Activity.RESULT_CANCELED) {
+              //Write your code if there's no result
+            }
+          }
+        }
+        mReturnResults.reject("failed");
+      }catch (Exception e){
+        mReturnResults.reject("bad",e);
+      }
+    }
+  };
 
   @ReactMethod
+  public void GetSerialNumber(Promise promise){
+    DeviceBasicModule deviceBasicModule = ModuleManage.getInstance().getDeviceBasicModule();
+    DeviceInfo deviceInfo = deviceBasicModule.getDeviceInfo();
+    String sn = deviceInfo.getSN();
+    if(sn != null && !sn.isEmpty()){
+      promise.resolve(sn);
+    }else {
+      promise.reject("not found");
+    }
+  }
+  @ReactMethod
   public void multiply(int a, int b , Promise promise){
-      promise.resolve(a*b);
+    promise.resolve(a*b);
   }
 
   public String getResponseCode() {
@@ -68,6 +149,8 @@ public class DashPayModule extends ReactContextBaseJavaModule {
     super(context);
     reactContext = context;
     tm = (TelephonyManager) reactContext.getSystemService(Context.TELEPHONY_SERVICE);
+    mPromises = new SparseArray<>();
+    reactContext.addActivityEventListener(mActivityEventListener);
   }
 
   @SuppressLint("MissingPermission")
@@ -115,57 +198,13 @@ public class DashPayModule extends ReactContextBaseJavaModule {
 
   @ReactMethod
   public void pay(String REFERENCE_NUMBER, String TRANSACTION_ID,String OPERATOR_ID, String ADDITIONAL_AMOUNT,String AMOUNT,String TRANSACTION_TYPE,String EXTRA_ORIGINATING_URI, Promise promise) {
-    reactContext.addActivityEventListener(new ActivityEventListener() {
-      @Override
-      public void onActivityResult(Activity activity, int requestCode, int resultCode, Intent intent) {
-        if (requestCode == REQUEST_CODE) {
-          if(resultCode == Activity.RESULT_OK){
-            String tid = intent.getStringExtra("TRANSACTION_ID");
-            if (tid != null && Integer.parseInt(tid) == lastSentTsn) {
-              String result = intent.getStringExtra("RESULT");
-              String displayTest = intent.getStringExtra("DISPLAY_TEXT");
-              setDisplayTest(displayTest);
-              setResult(result);
-              if (result.equals("APPROVED")) {
-                String responseCode = intent.getStringExtra("RESPONSE_CODE");
-                String authCode = intent.getStringExtra("AUTH_CODE");
-                setResponseCode(responseCode);
-                promise.resolve(requestCode);
-              } else if (result.equals("DECLINED")) {
-                String responseCode = intent.getStringExtra("RESPONSE_CODE");
-                setResponseCode(responseCode);
-                promise.resolve(requestCode);
-              } else {
-              }
-
-              new CountDownTimer(2000, 1000) { // 5000 = 5 sec
-
-                public void onTick(long millisUntilFinished) {
-                }
-
-                public void onFinish() {
-                }
-              }.start();
-            }
-          } else if (resultCode == Activity.RESULT_CANCELED) {
-            //Write your code if there's no result
-          }
-        }
-      }
-
-      @Override
-      public void onNewIntent(Intent intent) {
-
-      }
-    });
-
     Intent share = new Intent(android.content.Intent.ACTION_SEND);
     boolean found = false;
     share.setType("text/plain");
     List<ResolveInfo> resInfo = reactContext.getPackageManager().queryIntentActivities(share, 0);
     for (ResolveInfo info : resInfo) {
       if (info.activityInfo.packageName.toLowerCase().contains(PAYMENT_URI) ||
-        info.activityInfo.name.toLowerCase().contains(PAYMENT_URI) ) {
+              info.activityInfo.name.toLowerCase().contains(PAYMENT_URI) ) {
         share.putExtra(Intent.EXTRA_ORIGINATING_URI, EXTRA_ORIGINATING_URI);
         share.putExtra("TRANSACTION_TYPE", TRANSACTION_TYPE);
         //share.putExtra("TRANSACTION_TYPE","REVERSE LAST");
@@ -186,6 +225,7 @@ public class DashPayModule extends ReactContextBaseJavaModule {
       promise.resolve("no dashpay pos");
       return;
     }
+    mReturnResults = promise;
     reactContext.getCurrentActivity().startActivityForResult(Intent.createChooser(share,"Select"),REQUEST_CODE);
   }
 

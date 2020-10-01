@@ -14,6 +14,16 @@ buildscript {
   }
 }
 
+allprojects {
+  repositories {
+    mavenCentral()
+    //add it to be able to add depency to aar-files from libs folder in build.gradle(yoursAppModule)
+    flatDir {
+      dirs 'libs'
+    }
+  }
+}
+
 apply plugin: 'com.android.library'
 apply plugin: 'kotlin-android'
 
@@ -54,7 +64,9 @@ repositories {
   mavenCentral()
   jcenter()
   google()
-
+  flatDir{
+    dirs 'libs'
+  }
   def found = false
   def defaultDir = null
   def androidSourcesName = 'React Native sources'
@@ -127,4 +139,5 @@ dependencies {
   // noinspection GradleDynamicVersion
   api 'com.facebook.react:react-native:+'
   implementation "org.jetbrains.kotlin:kotlin-stdlib:$kotlin_version"
+  implementation project(path: ':MESDK-3.10.27-RELEASE')
 }
