@@ -1,6 +1,6 @@
 {
   "name": "react-native-dash-pay",
-  "version": "0.1.7",
+  "version": "0.1.8",
   "description": "intergration package for dash pay pos",
   "main": "lib/commonjs/index",
   "module": "lib/module/index",
