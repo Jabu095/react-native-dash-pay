@@ -44,6 +44,7 @@ public class DashPayModule extends ReactContextBaseJavaModule {
   private static ReactApplicationContext reactContext;
   private static final String PAYMENT_URI = "com.ar.dashpaypos";
   private static final int REQUEST_CODE = 1;
+  private static final int PRINT_REQUEST_CODE = 2;
   public static int tsn=1;
   public static String lastSentTsn="";
   private TelephonyManager tm;
@@ -91,6 +92,15 @@ public class DashPayModule extends ReactContextBaseJavaModule {
             } else if (resultCode == Activity.RESULT_CANCELED) {
               //Write your code if there's no result
               mReturnResults.reject("failed");
+            }
+          }
+        }else {
+          if(requestCode == PRINT_REQUEST_CODE){
+            String printResult = intent.getStringExtra("RESULT");
+            if(printResult.toLowerCase() == "true") {
+              mReturnResults.resolve(printResult);
+            }else {
+              mReturnResults.reject(printResult);
             }
           }
         }
@@ -231,32 +241,28 @@ public class DashPayModule extends ReactContextBaseJavaModule {
   }
 
   @ReactMethod
-  public void print(Promise propmise){
-    ModuleManage moduleManage = ModuleManage.getInstance();
-    boolean initialised = moduleManage.init(getReactApplicationContext());
-    // Toast.makeText(getReactApplicationContext(),Boolean.toString(initialised),Toast.LENGTH_LONG).show();
-    PrinterModule printerModule = moduleManage.getPrinterModule();
-    if(printerModule.getStatus() != PrinterStatus.NORMAL){
-      propmise.reject("Printer not found");
-    }else {
-      StringBuffer scriptBuffer = new StringBuffer();
-      scriptBuffer.append(" ____________________");
-      scriptBuffer.append("|      Welcome       |");
-      scriptBuffer.append(" ____________________");
-
-      Map<String, Bitmap> map = new HashMap<String, Bitmap>();
-      printerModule.print(scriptBuffer.toString(), map, new PrintListener() {
-        @Override
-        public void onSuccess() {
-          propmise.resolve("Done");
-        }
-
-        @Override
-        public void onError(ErrorCode errorCode, String s) {
-          propmise.reject(s);
-        }
-      });
+  public void print(String receipt,String EXTRA_ORIGINATING_URI, Promise promise){
+    Intent share = new Intent(android.content.Intent.ACTION_SEND);
+    boolean found = false;
+    share.setType("text/plain");
+    List<ResolveInfo> resInfo = reactContext.getPackageManager().queryIntentActivities(share, 0);
+    for (ResolveInfo info : resInfo) {
+      if (info.activityInfo.packageName.toLowerCase().contains("com.dashpay.bridge") ||
+              info.activityInfo.name.toLowerCase().contains("com.dashpay.bridge") ) {
+        share.putExtra(Intent.EXTRA_ORIGINATING_URI, EXTRA_ORIGINATING_URI);
+        share.putExtra("key", "Print");
+        share.putExtra("printString", receipt);
+        share.setPackage(info.activityInfo.packageName);
+        found = true;
+        break;
+      }
     }
+    if (!found){
+      promise.resolve("com.dashpay.bridge");
+      return;
+    }
+    mReturnResults = promise;
+    reactContext.getCurrentActivity().startActivityForResult(Intent.createChooser(share,"Select"),PRINT_REQUEST_CODE);
   }
 
   public class MobileResults {
