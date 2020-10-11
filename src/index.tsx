@@ -6,6 +6,7 @@ type DashPayType = {
   getTransactionResults(): Promise<string>;
   getImei(): Promise<string[]>;
   GetSerialNumber(): Promise<string>;
+  print(): Promise<string>;
 };
 
 const { DashPay } = NativeModules;
